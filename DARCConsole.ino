@@ -25,6 +25,15 @@
 // unless you've changed the address jumpers on the back of the display.
 #define DISPLAY_ADDRESS   0x70
 
+#define LED_LEFT_BRACKET  0x39
+#define LED_RIGHT_BRACKET 0x0F
+#define LED_DASH          0x40
+
+#define LED_D             0x5E
+#define LED_A             0x77
+#define LED_R             0x50
+#define LED_C             0x58
+
 // Create display object.  This is a global variable that
 // can be accessed from both the setup and loop function below.
 Adafruit_7segment clockDisplay = Adafruit_7segment();
@@ -236,15 +245,15 @@ void setup()
   arenaLights = digitalRead(PIN_ARENA_SWITCH);
   digitalWrite(PIN_ARENA_LIGHTS, arenaLights);
 
-  // Setup the display.
+  // Setup the LED display.
   clockDisplay.begin(DISPLAY_ADDRESS);
 
-  // Now print the time value to the display.
-  clockDisplay.print(300, DEC);
-
-  // Blink the colon by flipping its value every loop iteration
-  // (which happens every second).
-  clockDisplay.drawColon(1);
+  // Clear display
+  clockDisplay.writeDigitRaw(0, 0);
+  clockDisplay.writeDigitRaw(1, 0);
+  clockDisplay.drawColon(0);
+  clockDisplay.writeDigitRaw(3, 0);
+  clockDisplay.writeDigitRaw(4, 0);
 
   // Now push out to the display the new values that were set above.
   clockDisplay.writeDisplay();
@@ -271,37 +280,64 @@ void loop()
     {
     //
     case STATE_IDLE:
+      if (enterState)
+        {
+        // Initialize for the first time in this state
+        enterState = 0;  
+
+        // Put the display in chase mode
+        Serial.write("C.");
+
+        // Clear LED display
+        clockDisplay.writeDigitRaw(0, 0);
+        clockDisplay.writeDigitRaw(1, 0);
+        clockDisplay.drawColon(0);
+        clockDisplay.writeDigitRaw(3, 0);
+        clockDisplay.writeDigitRaw(4, 0);
+        clockDisplay.writeDisplay();
+        }
+
       if (buttonPushed(PIN_GO))
         {
-        state = STATE_READY;
+        // Wait for button release
+        while (buttonPushed(PIN_GO))
+          ;
 
-        // Show dim frame, total time in yellow
-        Serial.write("r[b]");
+        state = STATE_READY;
+        enterState = 1;
         minutes = 3;
         seconds = 0;
         tenSeconds = 0;
         colonOn = 1;
-        displayTime('y');
-        Serial.write(".");
-
-        // Wait for button release
-        while (buttonPushed(PIN_GO))
-          ;
         }
       break;
 
     //
     case STATE_READY:
+      if (enterState)
+        {
+        // Initialize for the first time in this state
+        enterState = 0;  
+        
+        // Show dim frame, total time in yellow
+        Serial.write("r[b]");
+        displayTime('y');
+        Serial.write(".");
+
+        // Show dashes in LED digits
+        clockDisplay.writeDigitRaw(1, LED_DASH);
+        clockDisplay.writeDigitRaw(3, LED_DASH);
+        clockDisplay.writeDisplay();
+        }
+
       if (buttonPushed(PIN_RESET))
         {
-        state = STATE_IDLE;
-
-        // Put the display in chase mode
-        Serial.write("C.");
-
         // Wait for button release
         while (buttonPushed(PIN_RESET))
           ;
+
+        state = STATE_IDLE;
+        enterState = 1;
         }
       else if (buttonPushed(PIN_RED_READY))
         {
@@ -309,6 +345,10 @@ void loop()
 
         // Highlight red frame
         Serial.write("R[.");
+
+        // Show right bracket on LED
+        clockDisplay.writeDigitRaw(4, LED_RIGHT_BRACKET);
+        clockDisplay.writeDisplay();
         }
       else if (buttonPushed(PIN_BLUE_READY))
         {
@@ -316,6 +356,10 @@ void loop()
 
         // Highlight blue frame
         Serial.write("B].");
+
+        // Show left bracket on LED
+        clockDisplay.writeDigitRaw(0, LED_LEFT_BRACKET);
+        clockDisplay.writeDisplay();
         }
       break;
 
@@ -327,6 +371,10 @@ void loop()
 
         // Highlight blue frame
         Serial.write("B].");
+
+        // Show left bracket on LED
+        clockDisplay.writeDigitRaw(0, LED_LEFT_BRACKET);
+        clockDisplay.writeDisplay();
         }
       else if (buttonPushed(PIN_RESET))
         {
@@ -334,6 +382,10 @@ void loop()
 
         // Dim red frame
         Serial.write("r[.");
+
+        // Clear right bracket on LED
+        clockDisplay.writeDigitRaw(4, 0);
+        clockDisplay.writeDisplay();
 
         // Wait for button release
         while (buttonPushed(PIN_RESET))
@@ -349,6 +401,10 @@ void loop()
 
         // Highlight red frame
         Serial.write("R[.");
+
+        // Show right bracket on LED
+        clockDisplay.writeDigitRaw(4, LED_RIGHT_BRACKET);
+        clockDisplay.writeDisplay();
         }
       else if (buttonPushed(PIN_RESET))
         {
@@ -356,6 +412,10 @@ void loop()
 
         // Dim blue frame
         Serial.write("b].");
+
+        // Clear left bracket on LED
+        clockDisplay.writeDigitRaw(0, 0);
+        clockDisplay.writeDisplay();
 
         // Wait for button release
         while (buttonPushed(PIN_RESET))
@@ -368,74 +428,133 @@ void loop()
       if (enterState)
         {
         // Initialize for the first time in this state
+        enterState = 0;
 
         // Show time in yellow
         displayTime('y');
         Serial.write(".");
 
-        enterState = 0;
+        // Restore display on LED
+        clockDisplay.writeDigitRaw(0, LED_LEFT_BRACKET);
+        clockDisplay.writeDigitRaw(1, LED_DASH);
+        clockDisplay.writeDigitRaw(3, LED_DASH);
+        clockDisplay.writeDigitRaw(4, LED_RIGHT_BRACKET);
+        clockDisplay.drawColon(0);
+        clockDisplay.writeDisplay();
         }
 
-      if (buttonPushed(PIN_GO))
+      if (buttonPushed(PIN_RESET))
+        {
+        state = STATE_READY;
+        enterState = 1;
+
+        // Clear ready indicators
+        clockDisplay.writeDigitRaw(0, 0);
+        clockDisplay.writeDigitRaw(4, 0);
+        clockDisplay.writeDisplay();
+
+        // Wait for button release
+        while (buttonPushed(PIN_RESET))
+          ;
+        }
+      else if (buttonPushed(PIN_GO))
         {
         // Wait for button release
         while (buttonPushed(PIN_GO))
           ;
 
-        // Wait five seconds, monitoring the RESET button
-        if (delayAndDetect(5000, 1, 0) == PIN_RESET)
+        // Clear brackets on LED
+        clockDisplay.writeDigitRaw(0, 0);
+        clockDisplay.writeDigitRaw(1, 0);
+        clockDisplay.drawColon(0);
+        clockDisplay.writeDigitRaw(3, 0);
+        clockDisplay.writeDigitRaw(4, 0);
+        clockDisplay.writeDisplay();
+
+#if 0
+        // Wait a half second, monitoring the RESET button
+        if (delayAndDetect(500, 1, 0) == PIN_RESET)
           {
           // Wait for button release
           while (buttonPushed(PIN_RESET))
             ;
 
           // Go back to start of Ready to fight state
+          enterState = 1;
           return;
           }
+#endif
 
         // Count down from three seconds
         Serial.write(";Y&3&.");
 
+        // Also on LED display
+        clockDisplay.writeDigitNum(3, 3);
+        clockDisplay.writeDisplay();
+
         if (delayAndDetect(1000, 1, 0) == PIN_RESET)
           {
           // Wait for button release
           while (buttonPushed(PIN_RESET))
             ;
 
-          // Go back to start of Ready to fight state
+          // Go back to start of Ready state
+          state = STATE_READY;
           enterState = 1;
+
           return;
           }
         Serial.write("2&.");
 
+        // Also on LED display
+        clockDisplay.writeDigitNum(3, 2);
+        clockDisplay.writeDisplay();
+
         if (delayAndDetect(1000, 1, 0) == PIN_RESET)
           {
           // Wait for button release
           while (buttonPushed(PIN_RESET))
             ;
 
-          // Go back to start of Ready to fight state
+          // Go back to start of Ready state
+          state = STATE_READY;
           enterState = 1;
+
           return;
           }
         Serial.write("1&.");
 
+        // Also on LED display
+        clockDisplay.writeDigitNum(3, 1);
+        clockDisplay.writeDisplay();
+
         if (delayAndDetect(1000, 1, 0) == PIN_RESET)
           {
           // Wait for button release
           while (buttonPushed(PIN_RESET))
             ;
 
-          // Go back to start of Ready to fight state
+          // Go back to start of Ready state
+          state = STATE_READY;
           enterState = 1;
           return;
           }
-        Serial.write("0&.");
+
+        displayTime('G');
+        Serial.write(":.");
+
+        // Now print the time value to the LED display.
+        clockDisplay.print(300, DEC);
+
+        // Blink the colon by flipping its value every loop iteration
+        // (which happens every second).
+        clockDisplay.drawColon(1);
+        clockDisplay.writeDisplay();
 
         // Prepare to fight...
         // Turn bell on
         digitalWrite(PIN_BELL, HIGH);
-        if (delayAndDetect(500, 1, 0) == PIN_RESET)
+        if (delayAndDetect(250, 1, 0) == PIN_RESET)
           {
           // Wait for button release
           while (buttonPushed(PIN_RESET))
@@ -451,7 +570,7 @@ void loop()
 
         // Turn bell off
         digitalWrite(PIN_BELL, LOW);
-        if (delayAndDetect(500, 1, 0) == PIN_RESET)
+        if (delayAndDetect(250, 1, 0) == PIN_RESET)
           {
           // Wait for button release
           while (buttonPushed(PIN_RESET))
@@ -464,7 +583,7 @@ void loop()
 
         // Turn bell on
         digitalWrite(PIN_BELL, HIGH);
-        if (delayAndDetect(500, 1, 0) == PIN_RESET)
+        if (delayAndDetect(250, 1, 0) == PIN_RESET)
           {
           // Wait for button release
           while (buttonPushed(PIN_RESET))
@@ -484,16 +603,6 @@ void loop()
         state = STATE_FIGHTING;
         enterState = 1;
         }
-      else if (buttonPushed(PIN_RESET))
-        {
-        state = STATE_READY;
-
-        Serial.write("r[b].");
-
-        // Wait for button release
-        while (buttonPushed(PIN_RESET))
-          ;
-        }
       break;
 
     //
@@ -501,16 +610,29 @@ void loop()
       if (enterState)
         {
         // Initialize for the first time in this state
+        enterState = 0;
 
         // Show time in green
         displayTime('G');
         if (colonOn)
+          {
           Serial.write(":");
+
+          // Show colon on LED
+          clockDisplay.drawColon(true);
+          }
         else
+          {
           Serial.write(";");
+
+          // Show colon on LED
+          clockDisplay.drawColon(true);
+          }
         Serial.write(".");
 
-        enterState = 0;
+        // LED not blinking
+        clockDisplay.blinkRate(0);
+        clockDisplay.writeDisplay();
         }
 
       while (minutes > 0 || tenSeconds > 0 || seconds > 0)
@@ -536,6 +658,11 @@ void loop()
           return;
           }
         Serial.write(";.");
+
+        // And on the LED
+        clockDisplay.drawColon(false);
+        clockDisplay.writeDisplay();
+
         colonOn = 0;
 
         // Turn on colon
@@ -545,6 +672,11 @@ void loop()
           // Wait for button release
           while (buttonPushed(PIN_PAUSE))
             ;
+
+          // Turn colon on on the LED
+          clockDisplay.drawColon(true);
+          clockDisplay.writeDisplay();
+
           state = STATE_PAUSE;
           enterState = 1;
           return;
@@ -559,6 +691,11 @@ void loop()
           return;
           }
         Serial.write(":");
+
+        // And on the LED
+        clockDisplay.drawColon(true);
+        clockDisplay.writeDisplay();
+
         colonOn = 1;
         if (seconds > 0)
           {
@@ -567,6 +704,10 @@ void loop()
           ch = seconds + '0';
           Serial.write(ch);
           Serial.write(".");
+
+          // And on the LED
+          clockDisplay.writeDigitNum(4, seconds);
+          clockDisplay.writeDisplay();
           }
         else
           if (tenSeconds > 0)
@@ -577,6 +718,11 @@ void loop()
             ch = tenSeconds + '0';
             Serial.write(ch);
             Serial.write("9.");
+
+            // And on the LED
+            clockDisplay.writeDigitNum(3, tenSeconds);
+            clockDisplay.writeDigitNum(4, 9);
+            clockDisplay.writeDisplay();
             }
           else
             {
@@ -586,20 +732,26 @@ void loop()
             seconds = 9;
             Serial.write(ch);
             Serial.write("59.");
+
+            // And on the LED
+            clockDisplay.writeDigitNum(1, minutes);
+            clockDisplay.writeDigitNum(3, 5);
+            clockDisplay.writeDigitNum(4, 9);
+            clockDisplay.writeDisplay();
             }
         }
 
+      Serial.write("R:000.");
       state = STATE_STOP;
       enterState = 1;
-      if (buttonPushed(PIN_PAUSE))
-        {
-        state = STATE_PAUSE;
-        enterState = 1;
 
-        // Wait for button release
-        while (buttonPushed(PIN_PAUSE))
-          ;
-        }
+      // Turn bell on
+      digitalWrite(PIN_BELL, HIGH);
+
+      delay(1000);
+
+      // Turn bell off
+      digitalWrite(PIN_BELL, LOW);
       break;
 
     //
@@ -607,18 +759,22 @@ void loop()
       if (enterState)
         {
         // Initialize for the first time in this state
+        enterState = 0;
 
         // Show time in yellow
         displayTime('Y');
         Serial.write(".");
 
-        enterState = 0;
+        // Flash LED
+        clockDisplay.blinkRate(2);
         }
 
       if (buttonPushed(PIN_GO))
         {
         state = STATE_FIGHTING;
         enterState = 1;
+        clockDisplay.drawColon(0);
+        clockDisplay.writeDisplay();
 
         // Wait for button release
         while (buttonPushed(PIN_GO))
@@ -640,12 +796,21 @@ void loop()
       if (enterState)
         {
         // Initialize for the first time in this state
+        enterState = 0;
 
         // Show time in red
         displayTime('R');
         Serial.write(":.");
 
-        enterState = 0;
+        // LED not flashing
+        clockDisplay.blinkRate(0);
+
+        // And on the LED
+        clockDisplay.writeDigitNum(1, 0);
+        clockDisplay.writeDigitNum(3, 0);
+        clockDisplay.writeDigitNum(4, 0);
+        clockDisplay.drawColon(1);
+        clockDisplay.writeDisplay();
         }
 
       if (buttonPushed(PIN_RESET))
@@ -653,6 +818,16 @@ void loop()
         state = STATE_IDLE;
 
         Serial.write("C.");
+
+        // Clear display
+        clockDisplay.writeDigitRaw(0, 0);
+        clockDisplay.writeDigitRaw(1, 0);
+        clockDisplay.drawColon(0);
+        clockDisplay.writeDigitRaw(3, 0);
+        clockDisplay.writeDigitRaw(4, 0);
+
+        // Now push out to the display the new values that were set above.
+        clockDisplay.writeDisplay();
 
         // Wait for button release
         while (buttonPushed(PIN_RESET))
