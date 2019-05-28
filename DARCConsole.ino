@@ -1,7 +1,7 @@
 //
 // This is the driver for the Dallas Area Robot Combat arena control console subsystem.
 //
-//  Copyright (C) 2017 William Gee Jr.
+//  Copyright (C) 2017, 2019 William Gee Jr.
 //
 //    This program is free software: you can redistribute it and/or modify
 //    it under the terms of the GNU General Public License as published by
@@ -20,6 +20,10 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include "Adafruit_LEDBackpack.h"
+
+// Length of the fight
+#define FIGHT_MINUTES 3
+#define FIGHT_SECONDS 0
 
 // I2C address of the display.  Stick with the default address of 0x70
 // unless you've changed the address jumpers on the back of the display.
@@ -305,8 +309,8 @@ void loop()
 
         state = STATE_READY;
         enterState = 1;
-        minutes = 3;
-        seconds = 0;
+        minutes = FIGHT_MINUTES;
+        seconds = FIGHT_SECONDS;
         tenSeconds = 0;
         colonOn = 1;
         }
